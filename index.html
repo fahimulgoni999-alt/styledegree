@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Style Degree | Premium Essentials</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { 'sans': ['Inter', 'sans-serif'] },
+                    colors: { brand: { 50: '#f9fafb', 100: '#f3f4f6', 900: '#111827' } }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        * { box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background-color: #ffffff; color: #111827; -webkit-font-smoothing: antialiased; margin: 0; padding: 0; }
+        .categories-wrapper { width: 100%; overflow-x: auto; overflow-y: hidden; white-space: nowrap; -webkit-overflow-scrolling: touch; scrollbar-width: none; -ms-overflow-style: none; padding-bottom: 4px; }
+        .categories-wrapper::-webkit-scrollbar { display: none; }
+        .categories-track { display: inline-flex; gap: 10px; min-width: max-content; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col overflow-x-hidden w-full relative bg-white">
+    
+    <div id="toast-container" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <!-- Navigation -->
+    <nav class="fixed top-0 w-full z-50 bg-white/90 backdrop-blur-md border-b border-gray-100 transition-all duration-300">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16 sm:h-20">
+                <div class="flex items-center sm:hidden">
+                    <button onclick="document.getElementById('mobile-menu').classList.toggle('hidden')" class="text-gray-500 hover:text-gray-900 p-2 -ml-2">
+                        <i class="ph ph-list text-2xl"></i>
+                    </button>
+                </div>
+                
+                <div class="flex-shrink-0 flex items-center cursor-pointer absolute left-1/2 transform -translate-x-1/2 sm:static sm:translate-x-0" onclick="navigate('home')">
+                    <span class="font-black text-lg sm:text-xl tracking-[0.15em] uppercase">STYLE DEGREE</span>
+                </div>
+                
+                <div class="hidden sm:flex sm:space-x-8">
+                    <button onclick="navigate('home')" class="text-gray-900 inline-flex items-center px-1 pt-1 border-b-2 border-transparent hover:border-gray-900 text-sm font-medium transition-colors">Shop</button>
+                </div>
+                
+                <div class="flex items-center space-x-4 sm:space-x-6">
+                    <button onclick="navigate('cart')" class="text-gray-900 hover:text-gray-600 transition-colors relative flex items-center p-2 -mr-2 sm:mr-0">
+                        <i class="ph ph-shopping-bag text-2xl"></i>
+                        <span id="cart-badge" class="absolute top-0 right-0 bg-[#cc0000] text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center hidden">0</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <div id="mobile-menu" class="hidden sm:hidden bg-white border-b border-gray-100 absolute w-full shadow-lg z-40">
+            <div class="flex flex-col px-6 py-4 space-y-4">
+                <button onclick="navigate('home'); document.getElementById('mobile-menu').classList.add('hidden')" class="text-left text-gray-900 font-bold text-lg uppercase tracking-wider border-b border-gray-50 pb-3">Shop</button>
+                <button onclick="navigate('cart'); document.getElementById('mobile-menu').classList.add('hidden')" class="text-left text-gray-900 font-bold text-lg uppercase tracking-wider border-b border-gray-50 pb-3">Cart</button>
+                <button onclick="navigate('admin'); document.getElementById('mobile-menu').classList.add('hidden')" class="text-left text-gray-400 font-medium text-sm">Admin Access</button>
+            </div>
+        </div>
+    </nav>
+
+    <main id="app-root" class="flex-grow flex flex-col w-full pt-16 sm:pt-20 opacity-0 transition-opacity duration-300"></main>
+
+    <footer class="bg-brand-50 border-t border-gray-200 mt-auto">
+        <div class="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
+            <div class="flex flex-col items-center space-y-4">
+                <span class="font-black text-lg tracking-[0.15em] uppercase">STYLE DEGREE</span>
+                <p class="text-xs text-gray-500 text-center tracking-wide">
+                    &copy; 2026 Style Degree. All rights reserved. <br class="sm:hidden">
+                    <a href="#" onclick="event.preventDefault(); navigate('admin')" class="text-gray-300 hover:text-gray-600 transition-colors ml-1 cursor-pointer">Admin</a>
+                </p>
+            </div>
+        </div>
+    </footer>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getFirestore, collection, addDoc, doc, updateDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyARt-UJnhiPAM9YeJq1-9DuZn4Su_xLie0",
+            authDomain: "style-degree.firebaseapp.com",
+            projectId: "style-degree",
+            storageBucket: "style-degree.firebasestorage.app",
+            messagingSenderId: "406070998655",
+            appId: "1:406070998655:web:73f4a0e5fa5b01ca34714a"
+        };
+
+        const state = {
+            route: 'home', cart: [], orders: [], isAuthReady: false, db: null,
+            ordersUnsubscribe: null, currentCategory: 'All', isAdminAuthenticated: false
+        };
+
+        const products = [
+            { id: 'ts1', name: 'Essential Heavyweight Tee', price: 1499, category: 'T-Shirts', img: 'https://images.pngicons.win/2024/02/tshirt-png-images-free-download-9.png', sizes: ['S', 'M', 'L', 'XL'] },
+            { id: 'ts2', name: 'Relaxed Fit Graphic Tee', price: 1299, category: 'T-Shirts', img: 'https://images.pngicons.win/2024/02/tshirt-png-images-free-download-14.png', sizes: ['S', 'M', 'L', 'XL'] },
+            { id: 'cp1', name: 'Signature Logo Cap', price: 899, category: 'Caps', img: 'https://www.pngmart.com/files/21/Baseball-Cap-PNG-Photos.png', sizes: ['Free Size'] },
+            { id: 'cp2', name: 'Washed Minimalist Cap', price: 999, category: 'Caps', img: 'https://www.pngmart.com/files/21/Baseball-Cap-Transparent-Background.png', sizes: ['Free Size'] },
+            { id: 'sh1', name: 'Oxford Button-Down', price: 2499, category: 'Shirts', img: 'https://www.pngmart.com/files/3/White-Shirt-PNG-Transparent-Image.png', sizes: ['S', 'M', 'L', 'XL'] },
+            { id: 'sh2', name: 'Oversized Flannel Shirt', price: 2799, category: 'Shirts', img: 'https://www.pngmart.com/files/3/Shirt-PNG-File.png', sizes: ['M', 'L', 'XL'] },
+            { id: 'pa1', name: 'Utility Cargo Pants', price: 3499, category: 'Pants', img: 'https://www.pngmart.com/files/7/Pants-PNG-Transparent-Image.png', sizes: ['30', '32', '34', '36'] },
+            { id: 'pa2', name: 'Parachute Pants', price: 3199, category: 'Pants', img: 'https://www.pngmart.com/files/7/Pant-PNG-Clipart.png', sizes: ['30', '32', '34', '36'] },
+            { id: 'hd1', name: 'Premium French Terry Hoodie', price: 3999, category: 'Hoodies', img: 'https://www.pngmart.com/files/5/Hoodie-PNG-Clipart.png', sizes: ['S', 'M', 'L', 'XL'] },
+            { id: 'hd2', name: 'Zip-Up Essential Hoodie', price: 3799, category: 'Hoodies', img: 'https://www.pngmart.com/files/5/Hoodie-PNG-Background-Image.png', sizes: ['S', 'M', 'L', 'XL'] },
+            { id: 'ac1', name: 'Signature Dad Cap', price: 999, category: 'Accessories', img: 'https://www.pngmart.com/files/21/Baseball-Cap-PNG-Clipart.png', sizes: ['Free Size'] },
+            { id: 'ac2', name: 'Crossbody Sling Bag', price: 1899, category: 'Accessories', img: 'https://www.pngmart.com/files/6/Leather-Bag-PNG-HD.png', sizes: ['One Size'] }
+        ];
+
+        async function initApp() {
+            try {
+                const app = initializeApp(firebaseConfig);
+                state.db = getFirestore(app);
+                state.isAuthReady = true;
+            } catch (err) { console.warn("Firebase init failed", err); }
+            renderView();
+        }
+
+        window.navigate = (route) => {
+            state.route = route; renderView(); window.scrollTo({ top: 0, behavior: 'smooth' });
+        };
+
+        function renderView() {
+            const root = document.getElementById('app-root');
+            root.classList.remove('opacity-100');
+            setTimeout(() => {
+                root.innerHTML = '';
+                if (state.route === 'home') root.appendChild(ViewHome());
+                else if (state.route === 'cart') root.appendChild(ViewCart());
+                else if (state.route === 'admin') root.appendChild(ViewAdmin());
+                updateCartBadge();
+                void root.offsetWidth; root.classList.add('opacity-100');
+            }, 150);
+        }
+
+        function ViewHome() {
+            const container = document.createElement('div');
+            container.className = 'w-full flex flex-col pb-20';
+
+            container.innerHTML = `
+                <div class="relative w-full min-h-[60vh] sm:min-h-[90vh] bg-[#e6e7eb] flex flex-col items-center justify-between pt-10 pb-6 px-4 overflow-hidden">
+                    <div class="w-full h-2 sm:h-10 z-20"></div>
+                    <div class="text-center z-20 mt-2">
+                        <div class="flex items-center justify-center gap-1 mb-2 text-black">
+                            <i class="ph-fill ph-sparkle text-xs"></i><i class="ph-fill ph-sparkle text-base"></i><i class="ph-fill ph-sparkle text-xs"></i>
+                        </div>
+                        <h1 class="text-4xl sm:text-7xl md:text-9xl font-black uppercase tracking-tighter text-gray-900 mb-2 sm:mb-4 leading-none">The New Era</h1>
+                        <p class="text-gray-800 text-xs sm:text-sm font-medium">A new chapter of elevated essentials.</p>
+                    </div>
+                    <div class="relative w-full h-[260px] sm:h-[500px] mt-4 sm:mt-8 z-10 flex justify-center items-start">
+                        <div class="absolute top-6 sm:top-12 left-[-10%] w-[120%] h-[4px] sm:h-[6px] bg-gradient-to-b from-[#4a4a4a] via-[#111] to-[#000] shadow-[0_10px_20px_rgba(0,0,0,0.5)] z-0"></div>
+                        <div class="relative z-10 flex gap-6 sm:gap-16 px-2 mt-6 sm:mt-12 items-start scale-[0.65] sm:scale-100 origin-top">
+                            <div class="relative group flex flex-col items-center">
+                                <div class="absolute -top-12 flex flex-col items-center z-0">
+                                    <div class="w-4 h-6 border-t-[3px] border-r-[3px] border-black rounded-tr-full transform -rotate-12 mb-[-2px]"></div>
+                                    <div class="w-16 h-1.5 bg-black rounded-sm"></div>
+                                </div>
+                                <div class="w-36 h-48 sm:w-48 sm:h-64 flex items-center justify-center drop-shadow-[0_20px_20px_rgba(0,0,0,0.3)]">
+                                    <img src="img1.png" class="max-w-full max-h-full object-contain">
+                                </div>
+                            </div>
+                            <div class="relative group flex flex-col items-center mt-6">
+                                <div class="absolute -top-12 flex flex-col items-center z-0">
+                                    <div class="w-4 h-6 border-t-[3px] border-r-[3px] border-black rounded-tr-full transform -rotate-12 mb-[-2px]"></div>
+                                    <div class="w-16 h-1.5 bg-black rounded-sm"></div>
+                                </div>
+                                <div class="w-28 h-56 sm:w-36 sm:h-72 flex items-center justify-center drop-shadow-[0_20px_20px_rgba(0,0,0,0.3)]">
+                                    <img src="img2.png" class="max-w-full max-h-full object-contain">
+                                </div>
+                            </div>
+                            <div class="relative group flex flex-col items-center mt-2">
+                                <div class="absolute -top-12 flex flex-col items-center z-0">
+                                    <div class="w-4 h-6 border-t-[3px] border-r-[3px] border-black rounded-tr-full transform -rotate-12 mb-[-2px]"></div>
+                                    <div class="w-16 h-1.5 bg-black rounded-sm"></div>
+                                </div>
+                                <div class="w-36 h-48 sm:w-48 sm:h-64 flex items-center justify-center drop-shadow-[0_20px_20px_rgba(0,0,0,0.3)]">
+                                    <img src="img3.png" class="max-w-full max-h-full object-contain">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            const categories = ['All', 'Caps', 'T-Shirts', 'Shirts', 'Pants', 'Hoodies', 'Accessories'];
+            const filterHTML = categories.map(cat => {
+                const isActive = state.currentCategory === cat;
+                const activeClasses = isActive ? 'bg-gray-900 text-white shadow-lg ring-1 ring-gray-900' : 'bg-transparent text-gray-500 hover:text-gray-900 hover:bg-gray-50 ring-1 ring-gray-200';
+                return `<button onclick="setCategory('${cat}')" class="flex-shrink-0 whitespace-nowrap px-5 py-2 sm:px-8 sm:py-3 rounded-full text-[11px] sm:text-xs uppercase tracking-[0.1em] font-bold transition-all duration-300 ${activeClasses}">${cat}</button>`;
+            }).join('');
+
+            const filteredProducts = state.currentCategory === 'All' ? products : products.filter(p => p.category === state.currentCategory);
+
+            let productsGridHTML = '';
+            if (filteredProducts.length === 0) {
+                productsGridHTML = `<div class="col-span-full py-12 text-center text-gray-500 tracking-wide">No products found in this category.</div>`;
+            } else {
+                filteredProducts.forEach(p => {
+                    const sizeOptions = p.sizes.map(sz => `<button onclick="selectSize('${p.id}', '${sz}', event)" id="size-${p.id}-${sz}" class="size-btn-${p.id} px-2.5 py-1 text-[10px] font-bold border rounded bg-white text-gray-700 border-gray-200 hover:border-black transition-all">${sz}</button>`).join('');
+                    
+                    productsGridHTML += `
+                        <div class="group relative flex flex-col bg-white border border-gray-100 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 p-3">
+                            <div class="w-full bg-[#f8f9fa] aspect-[3/4] rounded-md overflow-hidden relative mb-3 flex items-center justify-center p-4">
+                                <img src="${p.img}" alt="${p.name}" class="w-full h-full object-contain transform group-hover:scale-105 transition-transform duration-500">
+                            </div>
+                            <div class="px-1 flex flex-col flex-grow">
+                                <p class="text-[9px] sm:text-[10px] font-semibold text-gray-400 mb-1 uppercase tracking-[0.15em]">${p.category}</p>
+                                <h3 class="text-xs sm:text-base font-medium text-gray-900 mb-1 leading-snug line-clamp-1">${p.name}</h3>
+                                <p class="text-xs sm:text-sm font-bold text-gray-900 mb-3">₹${p.price.toLocaleString('en-IN')}</p>
+                                
+                                <div class="mb-4">
+                                    <p class="text-[10px] font-bold text-gray-500 uppercase mb-1.5">Select Size:</p>
+                                    <div class="flex flex-wrap gap-1.5" id="sizes-container-${p.id}">
+                                        ${sizeOptions}
+                                    </div>
+                                </div>
+
+                                <button onclick="addToCartWithSelectedSize('${p.id}')" class="mt-auto w-full bg-gray-900 text-white py-2.5 text-[10px] sm:text-xs font-bold uppercase tracking-[0.1em] rounded shadow hover:bg-black transition-colors">
+                                    Add to Cart
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+
+            const gridDiv = document.createElement('div');
+            gridDiv.id = "product-grid";
+            gridDiv.className = "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 sm:pt-32 pb-24 min-h-[50vh] w-full";
+            gridDiv.innerHTML = `
+                <div class="flex flex-col lg:flex-row justify-between lg:items-end border-b border-gray-200 pb-4 sm:pb-10 mb-8 sm:mb-16 gap-4">
+                    <h2 class="text-2xl sm:text-4xl font-light tracking-wide text-gray-900 uppercase">Latest <span class="font-bold">Arrivals</span></h2>
+                    <div class="categories-wrapper">
+                        <div class="categories-track">
+                            ${filterHTML}
+                        </div>
+                    </div>
+                </div>
+                <div id="dynamic-product-container" class="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-y-6 gap-x-3 sm:gap-y-12 sm:gap-x-8 w-full">
+                    ${productsGridHTML}
+                </div>
+            `;
+            container.appendChild(gridDiv);
+            return container;
+        }
+
+        const selectedSizes = {};
+        window.selectSize = (productId, size, event) => {
+            event.stopPropagation();
+            selectedSizes[productId] = size;
+            document.querySelectorAll(`.size-btn-${productId}`).forEach(btn => {
+                btn.classList.remove('bg-black', 'text-white', 'border-black');
+                btn.classList.add('bg-white', 'text-gray-700', 'border-gray-200');
+            });
+            const activeBtn = document.getElementById(`size-${productId}-${size}`);
+            if (activeBtn) {
+                activeBtn.classList.remove('bg-white', 'text-gray-700', 'border-gray-200');
+                activeBtn.classList.add('bg-black', 'text-white', 'border-black');
+            }
+        };
+
+        window.addToCartWithSelectedSize = (productId) => {
+            const product = products.find(x => x.id === productId);
+            if (!product) return;
+            const chosenSize = selectedSizes[productId] || product.sizes[0];
+            state.cart.push({ ...product, selectedSize: chosenSize });
+            updateCartBadge();
+            showToast(`Added ${product.name} (${chosenSize}) to bag`);
+        };
+
+        function ViewCart() {
+            const container = document.createElement('div');
+            container.className = 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-20 w-full flex-grow flex flex-col';
+
+            if (state.cart.length === 0) {
+                container.innerHTML = `
+                    <div class="flex flex-col items-center justify-center flex-grow py-20">
+                        <i class="ph ph-shopping-bag text-5xl sm:text-6xl text-gray-300 mb-6"></i>
+                        <h2 class="text-2xl sm:text-3xl font-light tracking-wide uppercase mb-4 text-center">Your bag is <span class="font-bold">empty</span></h2>
+                        <button onclick="navigate('home')" class="bg-gray-900 text-white px-8 py-4 uppercase text-[10px] sm:text-xs tracking-[0.1em] font-bold shadow-lg">Continue Shopping</button>
+                    </div>
+                `;
+                return container;
+            }
+
+            const total = state.cart.reduce((sum, item) => sum + item.price, 0);
+
+            let cartItemsHTML = state.cart.map((item, index) => `
+                <div class="py-6 flex items-start sm:items-center gap-4">
+                    <div class="w-20 h-28 sm:w-24 sm:h-32 bg-[#f8f9fa] rounded flex items-center justify-center p-2">
+                        <img src="${item.img}" class="max-w-full max-h-full object-contain">
+                    </div>
+                    <div class="flex-1">
+                        <h3 class="text-sm sm:text-base font-medium text-gray-900">${item.name}</h3>
+                        <p class="text-xs text-gray-500 mt-1">Size: <span class="font-bold text-black">${item.selectedSize}</span> | ${item.category}</p>
+                        <button onclick="removeFromCart(${index})" class="text-xs text-gray-400 hover:text-gray-900 mt-3 sm:mt-4 transition-colors underline underline-offset-4">Remove</button>
+                    </div>
+                    <div class="text-right">
+                        <span class="text-sm sm:text-base font-bold text-gray-900">₹${item.price.toLocaleString('en-IN')}</span>
+                    </div>
+                </div>
+            `).join('');
+
+            container.innerHTML = `
+                <h1 class="text-2xl sm:text-4xl font-light tracking-wide text-gray-900 uppercase mb-8 sm:mb-16">Shopping <span class="font-bold">Bag</span></h1>
+                <div class="flex flex-col lg:flex-row gap-10 lg:gap-16 lg:items-start">
+                    <div class="w-full lg:w-3/5 space-y-6 sm:space-y-8">
+                        <div class="divide-y divide-gray-200 border-t border-gray-200">
+                            ${cartItemsHTML}
+                        </div>
+                    </div>
+                    <div class="w-full lg:w-2/5 bg-brand-50 p-6 sm:p-8 rounded-xl border border-gray-100">
+                        <h2 class="text-lg sm:text-xl font-semibold text-gray-900 mb-6">Order Summary</h2>
+                        <div class="flex justify-between text-base sm:text-lg font-bold text-gray-900 mb-8 border-b border-gray-200 pb-6">
+                            <span>Total</span><span>₹${total.toLocaleString('en-IN')}</span>
+                        </div>
+                        <form id="checkout-form" onsubmit="processCheckout(event)" class="space-y-4">
+                            <input type="text" id="c-name" required class="w-full px-4 py-3 border border-gray-300 rounded-md text-sm" placeholder="Full Name">
+                            <input type="tel" id="c-phone" required class="w-full px-4 py-3 border border-gray-300 rounded-md text-sm" placeholder="Phone Number">
+                            <textarea id="c-address" required rows="2" class="w-full px-4 py-3 border border-gray-300 rounded-md text-sm" placeholder="Shipping Address"></textarea>
+                            
+                            <div class="pt-2">
+                                <label class="block text-xs font-bold text-gray-700 uppercase mb-2">Payment Method:</label>
+                                <div class="grid grid-cols-2 gap-2">
+                                    <label class="flex items-center justify-center gap-1 p-3 border rounded-md cursor-pointer border-black bg-white text-[11px] font-semibold">
+                                        <input type="radio" name="payment-method" value="COD" checked onclick="togglePaymentType('COD')"> Cash on Delivery
+                                    </label>
+                                    <label class="flex items-center justify-center gap-1 p-3 border rounded-md cursor-pointer border-gray-200 bg-white text-[11px] font-semibold">
+                                        <input type="radio" name="payment-method" value="UPI" onclick="togglePaymentType('UPI')"> UPI QR / Transfer
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div id="upi-details-box" class="hidden p-4 bg-white border border-gray-200 rounded-md text-center space-y-3">
+                                <p class="text-xs font-bold text-gray-900">Scan & Pay via any UPI App</p>
+                                <div class="bg-gray-50 p-3 rounded border border-gray-100 inline-block">
+                                    <p class="text-xs font-semibold text-gray-700 mb-1">Store UPI ID:</p>
+                                    <p class="font-mono font-bold text-sm text-black select-all bg-white px-3 py-1.5 border rounded border-gray-200">apexwebstudio@upi</p>
+                                </div>
+                                <input type="text" id="c-upi-ref" class="w-full px-3 py-2 border border-gray-300 rounded text-xs" placeholder="Enter 12-digit UTR / UPI Transaction Reference No.">
+                                <p class="text-[10px] text-amber-700 font-medium">⚠️ Orders paid via UPI require valid UTR verification before dispatch.</p>
+                            </div>
+
+                            <button type="submit" id="checkout-btn" class="w-full bg-gray-900 text-white py-4 mt-4 font-bold uppercase tracking-[0.1em] text-[10px] sm:text-xs">Complete Order</button>
+                        </form>
+                    </div>
+                </div>
+            `;
+            return container;
+        }
+
+        window.togglePaymentType = (type) => {
+            const upiBox = document.getElementById('upi-details-box');
+            upiBox.classList.add('hidden');
+            document.getElementById('c-upi-ref').required = false;
+
+            if (type === 'UPI') {
+                upiBox.classList.remove('hidden');
+                document.getElementById('c-upi-ref').required = true;
+            }
+        };
+
+        function ViewAdmin() {
+            const container = document.createElement('div');
+            container.className = 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-20 w-full flex-grow';
+
+            if (!state.isAdminAuthenticated) {
+                container.innerHTML = `
+                    <div class="max-w-md mx-auto mt-10 p-6 sm:p-8 bg-white border border-gray-200 rounded-xl shadow-sm text-center">
+                        <i class="ph ph-lock-key text-4xl sm:text-5xl text-gray-300 mb-4"></i>
+                        <h2 class="text-xl sm:text-2xl font-light tracking-wide text-gray-900 uppercase mb-2">Admin <span class="font-bold">Access</span></h2>
+                        <form onsubmit="handleAdminLogin(event)" class="space-y-4 mt-6">
+                            <input type="password" id="admin-pwd" placeholder="Enter password" class="w-full px-4 py-3 border border-gray-300 rounded-md text-sm" required>
+                            <button type="submit" class="w-full bg-gray-900 text-white py-3.5 font-bold uppercase tracking-wider text-xs rounded-md">Login</button>
+                        </form>
+                    </div>
+                `;
+                return container;
+            }
+
+            if (!state.isAuthReady) {
+                container.innerHTML = `<div class="flex justify-center py-20"><i class="ph ph-spinner animate-spin text-3xl text-gray-400"></i></div>`;
+                return container;
+            }
+
+            if (!state.ordersUnsubscribe) startOrderListener();
+
+            container.innerHTML = `
+                <div class="flex justify-between items-center mb-8 border-b border-gray-200 pb-6">
+                    <h1 class="text-2xl sm:text-3xl font-light tracking-wide text-gray-900 uppercase">Orders & Verification</h1>
+                    <div class="flex items-center gap-2 bg-green-50 text-green-700 px-3 py-1.5 rounded-full text-[10px] sm:text-xs font-bold uppercase tracking-wider border border-green-200">
+                        <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span> Secure Live
+                    </div>
+                </div>
+                <div id="admin-orders-list" class="space-y-6">
+                    <div class="flex justify-center py-10"><i class="ph ph-spinner animate-spin text-2xl text-gray-300"></i></div>
+                </div>
+            `;
+
+            if (state.orders.length > 0) setTimeout(renderAdminOrders, 50);
+            else if (state.ordersUnsubscribe) setTimeout(renderAdminOrders, 500);
+
+            return container;
+        }
+
+        window.handleAdminLogin = (e) => {
+            e.preventDefault();
+            if (document.getElementById('admin-pwd').value === 'admin') {
+                state.isAdminAuthenticated = true; showToast("Access granted"); renderView();
+            } else { showToast("Incorrect password", "error"); }
+        };
+
+        window.setCategory = (c) => { 
+            state.currentCategory = c; 
+            if (state.route === 'home') renderView(); 
+        };
+
+        window.removeFromCart = (i) => { state.cart.splice(i, 1); updateCartBadge(); if (state.route === 'cart') renderView(); };
+
+        function updateCartBadge() {
+            const b = document.getElementById('cart-badge');
+            if (b) { b.innerText = state.cart.length; state.cart.length > 0 ? b.classList.remove('hidden') : b.classList.add('hidden'); }
+        }
+
+        window.processCheckout = async (e) => {
+            e.preventDefault();
+            if (state.cart.length === 0 || !state.isAuthReady) return;
+
+            const paymentMethod = document.querySelector('input[name="payment-method"]:checked').value;
+            const totalAmount = state.cart.reduce((s, i) => s + i.price, 0);
+            const customerName = document.getElementById('c-name').value;
+            const customerPhone = document.getElementById('c-phone').value;
+            const customerAddress = document.getElementById('c-address').value;
+            const upiRef = paymentMethod === 'UPI' ? document.getElementById('c-upi-ref').value : 'N/A';
+
+            if (paymentMethod === 'UPI' && (!upiRef || upiRef.trim().length < 6)) {
+                showToast("Please enter a valid UTR / UPI Reference ID for verification.", "error");
+                return;
+            }
+
+            const btn = document.getElementById('checkout-btn');
+            btn.innerHTML = 'Processing...'; btn.disabled = true;
+
+            try {
+                await saveOrderToFirebase({
+                    customerName, customerPhone, customerAddress,
+                    paymentMethod: paymentMethod === 'UPI' ? 'UPI Transfer' : 'Cash on Delivery',
+                    upiReference: upiRef,
+                    items: state.cart, total: totalAmount,
+                    status: paymentMethod === 'UPI' ? 'Pending Verification' : 'Pending COD', 
+                    createdAt: new Date().toISOString()
+                });
+            } catch (err) {
+                showToast("Failed to place order.", "error"); btn.innerHTML = 'Complete Order'; btn.disabled = false;
+            }
+        };
+
+        async function saveOrderToFirebase(orderData) {
+            await addDoc(collection(state.db, 'orders'), orderData);
+            state.cart = []; 
+            showToast("Order placed successfully! Awaiting verification."); 
+            navigate('home');
+        }
+
+        function startOrderListener() {
+            if (!state.isAuthReady) return;
+            state.ordersUnsubscribe = onSnapshot(collection(state.db, 'orders'), (snapshot) => {
+                state.orders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+                                          .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+                if (state.route === 'admin') renderAdminOrders();
+            });
+        }
+
+        window.renderAdminOrders = () => {
+            const listEl = document.getElementById('admin-orders-list');
+            if (!listEl) return;
+            if (state.orders.length === 0) {
+                listEl.innerHTML = `<div class="text-center py-10 bg-gray-50 rounded-xl text-gray-500 text-sm">No orders yet</div>`;
+                return;
+            }
+            listEl.innerHTML = state.orders.map(order => {
+                let badgeClass = order.status.includes('Verified') || order.status === 'Accepted' ? 'bg-green-100 text-green-800' : order.status === 'Cancelled' ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800';
+                
+                let itemsHTML = order.items.map(item => `
+                    <div class="flex justify-between text-xs sm:text-sm text-gray-600 mb-1">
+                        <span>${item.name} <span class="text-black font-semibold">(${item.selectedSize})</span></span>
+                        <span class="font-medium text-gray-900">₹${item.price}</span>
+                    </div>
+                `).join('');
+
+                return `
+                    <div class="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+                        <div class="bg-gray-50 px-4 sm:px-6 py-3 border-b border-gray-200 flex justify-between items-center">
+                            <div class="flex flex-col">
+                                <span class="text-[10px] font-semibold text-gray-500 uppercase">Order ID</span>
+                                <span class="font-mono text-xs text-gray-900">${order.id.slice(0,8)}</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide bg-gray-100 text-gray-800">${order.paymentMethod}</span>
+                                <span class="px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide ${badgeClass}">${order.status}</span>
+                            </div>
+                        </div>
+                        <div class="p-4 sm:p-6 space-y-4">
+                            <div class="text-sm">
+                                <p class="font-semibold text-gray-900">${order.customerName}</p>
+                                <p class="text-gray-600">${order.customerPhone}</p>
+                                <p class="text-gray-500 mt-1 bg-gray-50 p-2 rounded">${order.customerAddress}</p>
+                                ${order.upiReference && order.upiReference !== 'N/A' ? `<p class="text-xs text-blue-700 mt-2 font-medium bg-blue-50 p-2 rounded">UTR / Ref ID: <span class="font-mono font-bold select-all">${order.upiReference}</span> (Verify in bank app)</p>` : ''}
+                            </div>
+                            <div class="border-t border-gray-100 pt-4">
+                                ${itemsHTML}
+                                <div class="flex justify-between items-center pt-2 mt-2 border-t border-gray-200 font-bold text-gray-900"><span>Total</span><span>₹${order.total.toLocaleString('en-IN')}</span></div>
+                            </div>
+                            <div class="flex gap-2 pt-2">
+                                <button onclick="updateStatus('${order.id}', 'Verified & Accepted')" class="flex-1 bg-green-700 text-white py-2.5 rounded text-xs font-bold uppercase tracking-wider hover:bg-green-800 transition-colors">Verify & Accept</button>
+                                <button onclick="updateStatus('${order.id}', 'Cancelled')" class="flex-1 bg-white border border-gray-300 text-gray-700 py-2.5 rounded text-xs font-bold uppercase tracking-wider hover:bg-gray-100 transition-colors">Reject / Cancel</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        };
+
+        window.updateStatus = async (id, status) => {
+            if (!state.isAuthReady) return;
+            try { await updateDoc(doc(state.db, 'orders', id), { status }); showToast(`Order marked as ${status}`); } 
+            catch (err) { showToast("Update failed", "error"); }
+        };
+
+        function showToast(msg, type = 'default') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `${type === 'error' ? 'bg-red-600' : 'bg-gray-900'} text-white px-4 py-3 rounded-lg shadow-lg text-xs sm:text-sm font-medium transform transition-all duration-300 translate-y-10 opacity-0 flex items-center gap-2`;
+            toast.innerHTML = `<i class="ph ${type === 'error' ? 'ph-warning-circle' : 'ph-check-circle'} text-lg"></i> ${msg}`;
+            container.appendChild(toast);
+            setTimeout(() => toast.classList.remove('translate-y-10', 'opacity-0'), 10);
+            setTimeout(() => { toast.classList.add('opacity-0'); setTimeout(() => toast.remove(), 300); }, 3000);
+        }
+
+        window.addEventListener('DOMContentLoaded', initApp);
+    </script>
+</body>
+</html>
